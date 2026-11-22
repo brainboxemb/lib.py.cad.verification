@@ -3,33 +3,43 @@
 This file is the current source of truth for unfinished work in
 `lib.py.cad.verification`.
 
-## Current status
+## Current accepted baseline
 
-Issue #75 implementation is complete and green in PR #76 at main commit
-`c04f666118b204d93427be0fc828682258486087`.
-
-The next immutable release is `0.15.0`. It exposes generic
-`ThroughPathSlot` expected-shape evidence required by Forge #378 while
-preserving existing visual behavior.
+Release `v0.15.0` is published from the completed #75 work. The through-path
+slot expected-shape capability is therefore no longer unfinished work.
 
 ## Current goal
 
-Publish `0.15.0` from the exact green main release commit, then let Forge
-consume it for full-catalog visual verification.
+Issue #78 — **now**: support generic SolidCraft verification for intentional
+sketch-only designs with zero bodies.
+
+Forge #683 exposed the missing generic behavior: native sketch replay succeeds,
+but the verification adapter unconditionally enters the body export path and
+fails with `nothing to export: the design has no bodies`.
+
+The verification library must own this behavior. Forge must not add a dummy body
+or consumer-local export bypass.
 
 ## Execution order
 
-1. [#75, now] Publish immutable `0.15.0`.
-2. Verify the release tag targets the exact tested main commit.
-3. Close #75 after the release exists.
-4. Resume Forge #378 against released `0.15.0`.
+1. [#78, now] Define zero-body verification requirements/design.
+2. Add focused adapter tests proving that an explicit `body_count=0` expectation
+   skips body export while preserving sketch, parameter, timeline and
+   saved-design checks.
+3. Preserve the current export/geometry path for expectations that require bodies.
+4. Implement the smallest SolidCraft adapter change.
+5. Release the next immutable verification-library version from a green exact
+   main commit.
+6. Let Forge #683 adopt the exact release and rerun its native sketch-only
+   save/reopen qualification.
+7. [#48, later] Finish repository-name spelling cleanup separately.
 
-## Open issue assessment — 2026-11-21
+## Open issue assessment — 2026-11-22
 
 | Issue | Status | Assessment |
 | --- | --- | --- |
-| #75 Support polyline through-slot expected-shape evidence | now | Implementation is merged; immutable 0.15.0 release remains. |
-| #48 Replace remaining lib.py.cad.verfication repository-name references | later | Naming/documentation cleanup unrelated to Forge visual restoration. |
+| #78 Support SolidCraft verification for sketch-only designs without bodies | **now** | Generic adapter gap blocking Forge #683; requirements/design/tests/implementation/release required here. |
+| #48 Replace remaining lib.py.cad.verfication repository-name references | **later** | Repository identity/documentation cleanup; independent of the active verification behavior gap. |
 
 Immediate chain:
-`verification 0.15.0 release -> Forge #378 full-catalog visual verification`.
+`verification #78 -> immutable release -> Forge #683 adoption/qualification`.
