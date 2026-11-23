@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.16.0
+
+- add reusable loading of existing schema-1 mesh geometry verification contracts;
+- add a mesh-geometry runner that writes the normal `cad-verification` report through the existing `verify()` engine;
+- add reusable loading of model-local `VERIFICATION = SolidCraftVerification(...)` definitions;
+- add a definition-file SolidCraft runner that delegates to the existing declarative verifier;
+- preserve the lazy heavy geometry/visual import boundary and keep CAD-CI, Docker/runtime selection and Forge compilation outside this library.
+
 ## 0.15.0
 
 - add generic `ThroughPathSlot` expected-shape geometry for polyline/arc slot centerlines;

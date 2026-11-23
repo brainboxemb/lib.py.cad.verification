@@ -5,41 +5,41 @@ This file is the current source of truth for unfinished work in
 
 ## Current accepted baseline
 
-Reusable verification semantics, evidence, geometry/visual helpers and the
-SolidCraft adapter are already library-owned. Consumers own model-specific
-expected values, tolerances, mutations, views and other policy.
+Issue #79 implementation is merged on main at
+`ca275b2a2d5246fb40c1800961372bae97cb326b` and passed normal library CI.
+
+The library now owns reusable schema-1 geometry-contract loading, mesh
+verification through the existing `verify()` engine, model-local
+`SolidCraftVerification` definition loading and the definition-file delegate
+runner. Consumers still own model-specific expected data and CAD-CI/runtime
+orchestration stays outside this library.
 
 ## Current goal
 
-### #79 — reusable verification runner boundary
+### #82 — publish immutable 0.16.0
 
 **Now.**
 
-Remove the remaining generic definition-loading and base verification launcher
-logic from Forge so CAD-CI can consume this library directly.
+Promote the tested #79 implementation as immutable 0.16.0 so
+`lib.py.cad.ci#110` can consume an exact released verification API.
 
-Initial accepted slice:
+Release gate:
 
-1. load existing schema-1 `reference_geometry.json` as
-   `GeometryContract`;
-2. run mesh geometry through the existing `verify()` report engine;
-3. load model-local Python `VERIFICATION = SolidCraftVerification(...)`;
-4. delegate that definition to the existing SolidCraft verification runner;
-5. keep Docker/runtime selection, CAD-CI/SCons and Forge compilation outside;
-6. keep preview/presentation work outside this initial slice.
-
-After library CI is green, open/merge one PR and publish an immutable release
-before CAD-CI #110 consumes the new API.
+1. VERSION, pyproject.toml and CHANGELOG.md declare 0.16.0;
+2. release PR wheel CI is green;
+3. merge the release PR;
+4. verify the main release workflow publishes `v0.16.0`;
+5. verify the release target equals the exact tested release commit;
+6. only then resume CAD-CI #110.
 
 ## Open issue assessment — 2026-11-23
 
 | Issue | Status | Assessment |
 | --- | --- | --- |
-| #79 Own the reusable SolidCraft verification runner/process used by CAD consumers | **now** | Required owner work for `lib.py.cad.ci#110`; implement the bounded base-runner slice above. |
+| #82 Publish immutable 0.16.0 verification runner release | **now** | Release gate for `lib.py.cad.ci#110`. |
 | #80 Align historical changelog with shared meta template and guidance | later / docs-only | Does not block verification integration. |
 | #48 Replace remaining lib.py.cad.verfication repository-name references | later | Naming cleanup unrelated to the current runtime contract. |
 
 ## Next checkpoint
 
-Green #79 library PR with no CAD-CI/SCons dependency and no new runtime/process
-startup behavior.
+Immutable `v0.16.0` targeting the exact green release commit.
