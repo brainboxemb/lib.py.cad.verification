@@ -3,33 +3,43 @@
 This file is the current source of truth for unfinished work in
 `lib.py.cad.verification`.
 
-## Current status
+## Current accepted baseline
 
-Issue #75 implementation is complete and green in PR #76 at main commit
-`c04f666118b204d93427be0fc828682258486087`.
-
-The next immutable release is `0.15.0`. It exposes generic
-`ThroughPathSlot` expected-shape evidence required by Forge #378 while
-preserving existing visual behavior.
+Reusable verification semantics, evidence, geometry/visual helpers and the
+SolidCraft adapter are already library-owned. Consumers own model-specific
+expected values, tolerances, mutations, views and other policy.
 
 ## Current goal
 
-Publish `0.15.0` from the exact green main release commit, then let Forge
-consume it for full-catalog visual verification.
+### #79 — reusable verification runner boundary
 
-## Execution order
+**Now.**
 
-1. [#75, now] Publish immutable `0.15.0`.
-2. Verify the release tag targets the exact tested main commit.
-3. Close #75 after the release exists.
-4. Resume Forge #378 against released `0.15.0`.
+Remove the remaining generic definition-loading and base verification launcher
+logic from Forge so CAD-CI can consume this library directly.
 
-## Open issue assessment — 2026-11-21
+Initial accepted slice:
+
+1. load existing schema-1 `reference_geometry.json` as
+   `GeometryContract`;
+2. run mesh geometry through the existing `verify()` report engine;
+3. load model-local Python `VERIFICATION = SolidCraftVerification(...)`;
+4. delegate that definition to the existing SolidCraft verification runner;
+5. keep Docker/runtime selection, CAD-CI/SCons and Forge compilation outside;
+6. keep preview/presentation work outside this initial slice.
+
+After library CI is green, open/merge one PR and publish an immutable release
+before CAD-CI #110 consumes the new API.
+
+## Open issue assessment — 2026-11-23
 
 | Issue | Status | Assessment |
 | --- | --- | --- |
-| #75 Support polyline through-slot expected-shape evidence | now | Implementation is merged; immutable 0.15.0 release remains. |
-| #48 Replace remaining lib.py.cad.verfication repository-name references | later | Naming/documentation cleanup unrelated to Forge visual restoration. |
+| #79 Own the reusable SolidCraft verification runner/process used by CAD consumers | **now** | Required owner work for `lib.py.cad.ci#110`; implement the bounded base-runner slice above. |
+| #80 Align historical changelog with shared meta template and guidance | later / docs-only | Does not block verification integration. |
+| #48 Replace remaining lib.py.cad.verfication repository-name references | later | Naming cleanup unrelated to the current runtime contract. |
 
-Immediate chain:
-`verification 0.15.0 release -> Forge #378 full-catalog visual verification`.
+## Next checkpoint
+
+Green #79 library PR with no CAD-CI/SCons dependency and no new runtime/process
+startup behavior.
