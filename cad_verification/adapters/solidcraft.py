@@ -12,6 +12,7 @@ import math
 from numbers import Real
 from pathlib import Path
 import re
+import runpy
 from typing import Any, Mapping
 
 from ..assertions import require_condition, require_equal
@@ -1977,3 +1978,44 @@ def run_solidcraft_verification(
         metadata=definition.metadata,
     )
     return verify(context, checks)
+
+
+def load_solidcraft_verification(path: Path) -> SolidCraftVerification:
+    """Load one model-local Python verification definition."""
+
+    source = Path(path)
+    try:
+        namespace = runpy.run_path(str(source))
+    except FileNotFoundError as exc:
+        raise VerificationConfigError(
+            f"SolidCraft verification definition does not exist: {source}"
+        ) from exc
+    except VerificationConfigError:
+        raise
+    except Exception as exc:
+        raise VerificationConfigError(
+            f"could not load SolidCraft verification definition: {source}: {exc}"
+        ) from exc
+
+    definition = namespace.get("VERIFICATION")
+    if not isinstance(definition, SolidCraftVerification):
+        raise VerificationConfigError(
+            "SolidCraft verification definition must export "
+            f"VERIFICATION = SolidCraftVerification(...): {source}"
+        )
+    return definition
+
+
+def run_solidcraft_verification_file(
+    model_path: Path,
+    output_dir: Path,
+    definition_path: Path,
+) -> dict[str, Any]:
+    """Load one model definition and run the existing SolidCraft verifier."""
+
+    return run_solidcraft_verification(
+        model_path,
+        output_dir,
+        load_solidcraft_verification(definition_path),
+    )
+
