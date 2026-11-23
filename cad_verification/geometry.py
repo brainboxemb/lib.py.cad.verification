@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import math
 from numbers import Real
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 import trimesh
 
@@ -160,6 +161,113 @@ class GeometryContract:
         object.__setattr__(self, "volume_mm3", volume)
         object.__setattr__(self, "volume_tolerance_mm3", volume_tolerance)
         object.__setattr__(self, "surface_distance_probes", probes)
+
+
+_GEOMETRY_CONTRACT_FIELDS = frozenset(
+    {
+        "schema",
+        "bounds_min",
+        "bounds_max",
+        "bounds_tolerance_mm",
+        "volume_mm3",
+        "volume_tolerance_mm3",
+        "watertight",
+        "bounds_sufficient",
+        "surface_distance_probes",
+    }
+)
+_SURFACE_PROBE_FIELDS = frozenset(
+    {"label", "point", "distance_mm", "tolerance_mm"}
+)
+
+
+def geometry_contract_from_mapping(data: Mapping[str, Any]) -> GeometryContract:
+    """Build one geometry contract from the public schema-1 mapping."""
+
+    if not isinstance(data, Mapping):
+        raise VerificationConfigError("geometry contract must be an object")
+    unknown = sorted(set(data) - _GEOMETRY_CONTRACT_FIELDS)
+    if unknown:
+        raise VerificationConfigError(
+            "geometry contract contains unsupported field(s): "
+            + ", ".join(unknown)
+        )
+    if data.get("schema") != 1:
+        raise VerificationConfigError("unsupported geometry contract schema")
+
+    required = ("bounds_min", "bounds_max", "bounds_tolerance_mm")
+    missing = [name for name in required if name not in data]
+    if missing:
+        raise VerificationConfigError(
+            "geometry contract is missing required field(s): "
+            + ", ".join(missing)
+        )
+
+    raw_probes = data.get("surface_distance_probes", [])
+    if not isinstance(raw_probes, list):
+        raise VerificationConfigError(
+            "surface_distance_probes must be an array"
+        )
+    probes = []
+    for index, row in enumerate(raw_probes):
+        if not isinstance(row, Mapping):
+            raise VerificationConfigError(
+                f"surface_distance_probes[{index}] must be an object"
+            )
+        unknown_probe = sorted(set(row) - _SURFACE_PROBE_FIELDS)
+        if unknown_probe:
+            raise VerificationConfigError(
+                f"surface_distance_probes[{index}] contains unsupported field(s): "
+                + ", ".join(unknown_probe)
+            )
+        missing_probe = [
+            name for name in _SURFACE_PROBE_FIELDS if name not in row
+        ]
+        if missing_probe:
+            raise VerificationConfigError(
+                f"surface_distance_probes[{index}] is missing required field(s): "
+                + ", ".join(sorted(missing_probe))
+            )
+        probes.append(
+            SurfaceDistanceProbe(
+                label=row["label"],
+                point=row["point"],
+                distance_mm=row["distance_mm"],
+                tolerance_mm=row["tolerance_mm"],
+            )
+        )
+
+    return GeometryContract(
+        bounds_min=data["bounds_min"],
+        bounds_max=data["bounds_max"],
+        bounds_tolerance_mm=data["bounds_tolerance_mm"],
+        volume_mm3=data.get("volume_mm3"),
+        volume_tolerance_mm3=data.get("volume_tolerance_mm3"),
+        watertight=data.get("watertight"),
+        bounds_sufficient=data.get("bounds_sufficient", True),
+        surface_distance_probes=tuple(probes),
+    )
+
+
+def load_geometry_contract(path: Path) -> GeometryContract:
+    """Load one schema-1 geometry contract JSON file."""
+
+    source = Path(path)
+    try:
+        data = json.loads(source.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise VerificationConfigError(
+            f"geometry contract file does not exist: {source}"
+        ) from exc
+    except OSError as exc:
+        raise VerificationConfigError(
+            f"could not read geometry contract: {source}: {exc}"
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise VerificationConfigError(
+            f"invalid geometry contract JSON: {source}: {exc}"
+        ) from exc
+    return geometry_contract_from_mapping(data)
 
 
 def _load_mesh(path: Path) -> trimesh.Trimesh:
@@ -336,3 +444,33 @@ def validate_mesh_geometry(
         )
 
     return evidence
+
+
+def run_mesh_geometry_verification(
+    mesh_path: Path,
+    output_dir: Path,
+    contract: GeometryContract,
+    *,
+    verification_id: str,
+) -> dict[str, Any]:
+    """Run one mesh contract through the standard verification report engine."""
+
+    from .model import CheckOutcome, VerificationCheck, VerificationContext
+    from .verification import verify
+
+    context = VerificationContext(
+        verification_id=verification_id,
+        input_path=Path(mesh_path).resolve(),
+        output_dir=Path(output_dir).resolve(),
+    )
+
+    def geometry_check(ctx: VerificationContext) -> CheckOutcome:
+        return CheckOutcome.passed(
+            evidence=validate_mesh_geometry(ctx.input_path, contract)
+        )
+
+    return verify(
+        context,
+        (VerificationCheck("geometry", geometry_check),),
+    )
+

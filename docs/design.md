@@ -1628,3 +1628,78 @@ Existing absolute `SolidCraftModelExpectation` verification runs first for the
 mutated model. Relation evidence is then added under a separate
 `changes` collection. Definitions without `changes` preserve their existing
 evidence shape.
+
+## Reusable base verification loaders and runners
+
+Issue #79 removes the remaining generic verification launcher knowledge from
+consumer repositories without introducing a second orchestration framework.
+
+### Geometry contract loading
+
+`cad_verification.geometry` adds:
+
+```python
+geometry_contract_from_mapping(data) -> GeometryContract
+load_geometry_contract(path) -> GeometryContract
+```
+
+The mapping function validates the schema-1 public file shape and constructs the
+existing `SurfaceDistanceProbe` and `GeometryContract` objects. It rejects
+unknown fields so misspelled verification policy cannot silently become
+unverified policy.
+
+The file loader performs one direct UTF-8 JSON read and delegates all semantic
+validation to the mapping function and existing dataclass validators. It performs
+no repository discovery.
+
+### Mesh runner
+
+`cad_verification.geometry` also adds:
+
+```python
+run_mesh_geometry_verification(
+    mesh_path,
+    output_dir,
+    contract,
+    *,
+    verification_id,
+) -> dict
+```
+
+It constructs one normal `VerificationContext` and one
+`VerificationCheck("geometry", ...)`. The check returns
+`CheckOutcome.passed(evidence=validate_mesh_geometry(...))`.
+
+The existing `verify()` function remains the only report/status engine. No new
+pass/fail/error mapping is introduced.
+
+Geometry APIs remain lazy exports from the package root, preserving the current
+optional heavy-import boundary.
+
+### SolidCraft definition runner
+
+`cad_verification.adapters.solidcraft` adds:
+
+```python
+load_solidcraft_verification(path) -> SolidCraftVerification
+run_solidcraft_verification_file(
+    model_path,
+    output_dir,
+    definition_path,
+) -> dict
+```
+
+The loader uses `runpy.run_path()`, reads only the global `VERIFICATION`, and
+requires that value to be a `SolidCraftVerification`. The runner then delegates
+unchanged to `run_solidcraft_verification()`.
+
+This keeps model-specific Python configuration in the consumer while removing
+consumer-owned generic loading/status glue.
+
+### Performance boundary
+
+These APIs execute inside an already-selected Python/CAD runtime. They do not
+select or launch Docker, inspect Git, scan a repository or create a batch
+scheduler. CAD-CI may call them inside an existing shared runtime batch without
+adding another process/container start.
+

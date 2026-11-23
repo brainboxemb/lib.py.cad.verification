@@ -16,8 +16,10 @@ from .adapters import (
     SolidCraftVerification,
     evaluate_solidcraft_model,
     inspect_solidcraft_model,
+    load_solidcraft_verification,
     mutate_solidcraft_model,
     run_solidcraft_verification,
+    run_solidcraft_verification_file,
     verify_solidcraft_measurements,
 )
 from .assertions import (
@@ -63,6 +65,9 @@ from .verification import verify
 
 _LAZY_EXPORTS = {
     "GeometryContract": (".geometry", "GeometryContract"),
+    "geometry_contract_from_mapping": (".geometry", "geometry_contract_from_mapping"),
+    "load_geometry_contract": (".geometry", "load_geometry_contract"),
+    "run_mesh_geometry_verification": (".geometry", "run_mesh_geometry_verification"),
     "SurfaceDistanceProbe": (".geometry", "SurfaceDistanceProbe"),
     "validate_mesh_geometry": (".geometry", "validate_mesh_geometry"),
     "ExpectedBox": (".visual", "ExpectedBox"),
@@ -155,10 +160,15 @@ __all__ = [
     "mutate_solidcraft_model",
     "normalize_image",
     "run_solidcraft_verification",
+    "run_solidcraft_verification_file",
+    "run_mesh_geometry_verification",
     "project_points",
     "require_condition",
     "require_equal",
     "inspect_solidcraft_model",
+    "load_geometry_contract",
+    "load_solidcraft_verification",
+    "geometry_contract_from_mapping",
     "require_semantic_pass",
     "semantic_checks_from_report",
     "run_command",

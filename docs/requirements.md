@@ -1030,3 +1030,66 @@ value, absolute delta, threshold and pass/fail comparison.
 Saved designs that declare no change expectations retain their current
 behavior exactly. Consumers provide data only; no callback or predicate is
 accepted.
+
+## 30. Reusable verification definition loading and base runners
+
+The library owns reusable loading and execution of verification definitions.
+Consumers supply only model-specific configuration and already-selected model
+artifacts.
+
+### 30.1 Geometry contract files
+
+`load_geometry_contract(path)` loads the existing reference-geometry JSON
+contract without consumer-specific code.
+
+The file is one JSON object with `schema: 1` and maps directly to
+`GeometryContract`:
+
+- required: `bounds_min`, `bounds_max`, `bounds_tolerance_mm`;
+- optional: `volume_mm3`, `volume_tolerance_mm3`, `watertight`,
+  `bounds_sufficient`;
+- optional `surface_distance_probes` rows contain `label`, `point`,
+  `distance_mm` and `tolerance_mm`.
+
+Malformed JSON, an unsupported schema, unsupported fields, malformed probe rows
+or invalid geometry values are `VerificationConfigError`.
+
+Existing valid Forge `reference_geometry.json` schema-1 files require no
+format change.
+
+### 30.2 Mesh geometry runner
+
+`run_mesh_geometry_verification(mesh_path, output_dir, contract,
+verification_id)` composes the existing `validate_mesh_geometry()` function
+with the existing `verify()` engine.
+
+It:
+
+- runs one check named `geometry`;
+- writes the normal `cad-verification` `verification.json`;
+- maps `VerificationFailure` to report status `fail`;
+- maps mesh/config/infrastructure errors through the normal verification error
+  semantics;
+- returns the complete report.
+
+The runner does not start a CAD engine, container or subprocess.
+
+### 30.3 SolidCraft definition files
+
+`load_solidcraft_verification(path)` executes one model-local Python
+definition and requires a global
+`VERIFICATION = SolidCraftVerification(...)`.
+
+`run_solidcraft_verification_file(model_path, output_dir, definition_path)`
+loads that definition and delegates to the existing
+`run_solidcraft_verification()` implementation.
+
+The loader/runner owns no model-specific expected values.
+
+### 30.4 Boundary
+
+This library does not own CAD-CI selection, SCons graphs, caching, Docker/runtime
+selection, Forge compilation or publication.
+
+Preview/presentation generation is outside this initial base-runner contract.
+

@@ -1,4 +1,4 @@
-"""R1-R12 tests for reusable mesh geometry verification."""
+"""Requirement tests for reusable mesh geometry verification."""
 
 from __future__ import annotations
 
@@ -21,6 +21,9 @@ from cad_verification import (
     VerificationConfigError,
     VerificationContext,
     VerificationFailure,
+    geometry_contract_from_mapping,
+    load_geometry_contract,
+    run_mesh_geometry_verification,
     validate_mesh_geometry,
     verify,
 )
@@ -440,6 +443,105 @@ class GeometryVerificationTests(unittest.TestCase):
         for name in forbidden:
             with self.subTest(name=name):
                 self.assertNotIn(name, source.lower())
+
+
+    def test_r13_schema_one_contract_file_loads_without_consumer_code(self):
+        """Existing reference_geometry.json data maps to GeometryContract."""
+
+        path = self.root / "reference_geometry.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "schema": 1,
+                    "bounds_min": [-5, -10, -15],
+                    "bounds_max": [5, 10, 15],
+                    "bounds_tolerance_mm": 0.25,
+                    "volume_mm3": 6000,
+                    "volume_tolerance_mm3": 1,
+                    "watertight": True,
+                    "bounds_sufficient": False,
+                    "surface_distance_probes": [
+                        {
+                            "label": "outside-x",
+                            "point": [10, 0, 0],
+                            "distance_mm": 5,
+                            "tolerance_mm": 0.1,
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        contract = load_geometry_contract(path)
+        self.assertEqual(contract.bounds_min, (-5.0, -10.0, -15.0))
+        self.assertFalse(contract.bounds_sufficient)
+        self.assertEqual(contract.surface_distance_probes[0].label, "outside-x")
+
+    def test_r14_contract_mapping_rejects_schema_and_field_drift(self):
+        """Malformed contract files fail before geometry is evaluated."""
+
+        base = {
+            "schema": 1,
+            "bounds_min": [0, 0, 0],
+            "bounds_max": [1, 1, 1],
+            "bounds_tolerance_mm": 0.1,
+        }
+        self.assertEqual(
+            geometry_contract_from_mapping(base).bounds_tolerance_mm,
+            0.1,
+        )
+
+        with self.assertRaisesRegex(
+            VerificationConfigError,
+            "unsupported geometry contract schema",
+        ):
+            geometry_contract_from_mapping({**base, "schema": 2})
+
+        with self.assertRaisesRegex(
+            VerificationConfigError,
+            "unsupported field",
+        ):
+            geometry_contract_from_mapping({**base, "typo": True})
+
+        broken = self.root / "broken.json"
+        broken.write_text("{", encoding="utf-8")
+        with self.assertRaisesRegex(
+            VerificationConfigError,
+            "invalid geometry contract JSON",
+        ):
+            load_geometry_contract(broken)
+
+    def test_r15_mesh_runner_uses_standard_verification_report(self):
+        """Mesh verification reuses verify() pass/fail report semantics."""
+
+        output = self.root / "mesh-report"
+        report = run_mesh_geometry_verification(
+            self.cube_path(),
+            output,
+            self.bounds_only(),
+            verification_id="mesh-test",
+        )
+        self.assertEqual(report["status"], "pass")
+        self.assertEqual(report["checks"][0]["id"], "geometry")
+        self.assertEqual(
+            report,
+            json.loads((output / "verification.json").read_text(encoding="utf-8")),
+        )
+
+        failing = GeometryContract(
+            (-6, -10, -15),
+            (5, 10, 15),
+            0.001,
+        )
+        failed = run_mesh_geometry_verification(
+            self.cube_path(),
+            self.root / "mesh-fail",
+            failing,
+            verification_id="mesh-fail",
+        )
+        self.assertEqual(failed["status"], "fail")
+        self.assertEqual(failed["checks"][0]["status"], "fail")
 
 
 if __name__ == "__main__":

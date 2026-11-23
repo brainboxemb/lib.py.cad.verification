@@ -18,7 +18,9 @@ from cad_verification import (
     SolidCraftSavedDesign,
     SolidCraftVerification,
     VerificationConfigError,
+    load_solidcraft_verification,
     run_solidcraft_verification,
+    run_solidcraft_verification_file,
 )
 import cad_verification.adapters.solidcraft as solidcraft_module
 
@@ -942,6 +944,60 @@ class DeclarativeSolidCraftVerificationTests(unittest.TestCase):
         for value in forbidden:
             with self.subTest(value=value):
                 self.assertNotIn(value, source)
+
+
+    def test_definition_file_loader_and_runner_remove_consumer_launcher_glue(self):
+        """Model-local VERIFICATION config loads and delegates to the existing runner."""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            definition_path = root / "verify.py"
+            definition_path.write_text(
+                "from cad_verification import (\n"
+                "    SolidCraftModelExpectation, SolidCraftVerification,\n"
+                ")\n"
+                "VERIFICATION = SolidCraftVerification(\n"
+                "    verification_id='file-test',\n"
+                "    baseline=SolidCraftModelExpectation(body_count=1),\n"
+                ")\n",
+                encoding="utf-8",
+            )
+
+            definition = load_solidcraft_verification(definition_path)
+            self.assertIsInstance(definition, SolidCraftVerification)
+            self.assertEqual(definition.verification_id, "file-test")
+
+            model = root / "model.sc"
+            output = root / "output"
+            with patch.object(
+                solidcraft_module,
+                "run_solidcraft_verification",
+                return_value={"status": "pass"},
+            ) as runner:
+                result = run_solidcraft_verification_file(
+                    model,
+                    output,
+                    definition_path,
+                )
+
+            self.assertEqual(result, {"status": "pass"})
+            called_model, called_output, called_definition = runner.call_args.args
+            self.assertEqual(called_model, model)
+            self.assertEqual(called_output, output)
+            self.assertIsInstance(called_definition, SolidCraftVerification)
+            self.assertEqual(called_definition.verification_id, "file-test")
+
+    def test_definition_loader_rejects_missing_verification_export(self):
+        """A Python file is configuration only when it exports the required object."""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "verify.py"
+            path.write_text("VALUE = 1\n", encoding="utf-8")
+            with self.assertRaisesRegex(
+                VerificationConfigError,
+                "must export VERIFICATION",
+            ):
+                load_solidcraft_verification(path)
 
 
 if __name__ == "__main__":

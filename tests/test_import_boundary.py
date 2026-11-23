@@ -43,10 +43,17 @@ def guarded_import(name, *args, **kwargs):
 
 builtins.__import__ = guarded_import
 
-from cad_verification import SolidCraftVerification, run_solidcraft_verification
+from cad_verification import (
+    SolidCraftVerification,
+    load_solidcraft_verification,
+    run_solidcraft_verification,
+    run_solidcraft_verification_file,
+)
 
 assert SolidCraftVerification is not None
+assert callable(load_solidcraft_verification)
 assert callable(run_solidcraft_verification)
+assert callable(run_solidcraft_verification_file)
 assert "cad_verification.geometry" not in sys.modules
 assert "cad_verification.visual" not in sys.modules
 '''
